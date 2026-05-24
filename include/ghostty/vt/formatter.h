@@ -75,6 +75,16 @@ typedef struct {
 
   /** Emit character set designations and invocations. */
   bool charsets;
+
+  /** Emit saved cursor state using DECSC (ESC 7).
+   *
+   *  If the screen has a saved cursor, moves to the saved position,
+   *  emits DECSC, then restores the real cursor position.
+   *
+   *  NOTE: only the saved cursor position is preserved; the full
+   *  DECSC state (SGR style, character sets, origin mode, wrap flag,
+   *  protection) is not yet reconstructed. */
+  bool saved_cursor;
 } GhosttyFormatterScreenExtra;
 
 /**

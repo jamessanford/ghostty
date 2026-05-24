@@ -480,6 +480,20 @@ pub const ScreenFormatter = struct {
         /// This includes G0-G3 designations (ESC ( ) * +) and GL/GR invocations.
         charsets: bool,
 
+        /// Emit saved cursor state using DECSC (ESC 7).
+        ///
+        /// If the screen has a saved cursor (from a prior DECSC), this moves
+        /// the cursor to the saved position, emits DECSC to re-establish the
+        /// save slot on the receiving terminal, then restores the real cursor
+        /// position.
+        ///
+        /// NOTE: This currently only preserves the saved cursor *position*.
+        /// A full DECSC also saves SGR style, character set state, origin
+        /// mode, wrap flag, and protection attribute. Restoring those would
+        /// require temporarily setting each one before the DECSC and then
+        /// reverting to the real state afterward.
+        saved_cursor: bool,
+
         /// Emit nothing.
         pub const none: Extra = .{
             .cursor = false,
@@ -488,6 +502,7 @@ pub const ScreenFormatter = struct {
             .protection = false,
             .kitty_keyboard = false,
             .charsets = false,
+            .saved_cursor = false,
         };
 
         /// Emit style-relevant information only.
@@ -498,6 +513,7 @@ pub const ScreenFormatter = struct {
             .protection = false,
             .kitty_keyboard = false,
             .charsets = false,
+            .saved_cursor = false,
         };
 
         /// Emit everything. This reconstructs the screen state as closely
@@ -509,6 +525,7 @@ pub const ScreenFormatter = struct {
             .protection = true,
             .kitty_keyboard = true,
             .charsets = true,
+            .saved_cursor = true,
         };
 
         fn isSet(self: Extra) bool {
@@ -649,6 +666,18 @@ pub const ScreenFormatter = struct {
                     .G3 => "\x1b|", // LS3R
                 };
                 try writer.print("{s}", .{seq});
+            }
+        }
+
+        // Emit saved cursor state using DECSC (ESC 7).
+        // Must come before cursor so that the final CUP leaves the cursor
+        // at the real position.
+        if (self.extra.saved_cursor) {
+            if (self.screen.saved_cursor) |sc| {
+                // Move to the saved position and issue DECSC so the
+                // receiving terminal's save slot holds the right coords.
+                try writer.print("\x1b[{d};{d}H", .{ sc.y + 1, sc.x + 1 });
+                try writer.writeAll("\x1b\x37"); // ESC 7 = DECSC
             }
         }
 
