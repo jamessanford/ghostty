@@ -266,6 +266,11 @@ fn new_(
     });
     errdefer t.deinit(alloc);
 
+    // libghostty-vt embedders don't necessarily install Ghostty's shell
+    // integration, so don't assume OSC 133 prompts can be redrawn on resize.
+    // Shells can still opt in with OSC 133;A;redraw=1.
+    t.flags.shell_redraws_prompt = .false;
+
     // Setup our stream with trampolines always installed so that
     // setting C callbacks at any time takes effect immediately.
     var handler: Stream.Handler = t.vtHandler();
@@ -593,13 +598,14 @@ pub const TerminalData = enum(c_int) {
     kitty_image_medium_shared_mem = 29,
     kitty_graphics = 30,
     selection = 31,
+    viewport_active = 32,
 
     /// Output type expected for querying the data of the given kind.
     pub fn OutType(comptime self: TerminalData) type {
         return switch (self) {
             .invalid => void,
             .cols, .rows, .cursor_x, .cursor_y => size.CellCountInt,
-            .cursor_pending_wrap, .cursor_visible, .mouse_tracking => bool,
+            .cursor_pending_wrap, .cursor_visible, .mouse_tracking, .viewport_active => bool,
             .active_screen => TerminalScreen,
             .kitty_keyboard_flags => u8,
             .scrollbar => TerminalScrollbar,
@@ -734,6 +740,7 @@ fn getTyped(
         .selection => out.* = selection_c.CSelection.fromZig(
             t.screens.active.selection orelse return .no_value,
         ),
+        .viewport_active => out.* = t.screens.active.pages.viewport == .active,
     }
 
     return .success;
@@ -883,6 +890,10 @@ test "scroll_viewport" {
 
     const zt = t.?.terminal;
 
+    var viewport_active: bool = false;
+    try testing.expectEqual(Result.success, get(t, .viewport_active, @ptrCast(&viewport_active)));
+    try testing.expect(viewport_active);
+
     // Write "hello" on the first line
     vt_write(t, "hello", 5);
 
@@ -897,6 +908,8 @@ test "scroll_viewport" {
 
     // Scroll to top: "hello" should be visible again
     scroll_viewport(t, .{ .tag = .top, .value = undefined });
+    try testing.expectEqual(Result.success, get(t, .viewport_active, @ptrCast(&viewport_active)));
+    try testing.expect(!viewport_active);
     {
         const str = try zt.plainString(testing.allocator);
         defer testing.allocator.free(str);
@@ -905,6 +918,8 @@ test "scroll_viewport" {
 
     // Scroll to bottom: viewport should be empty again
     scroll_viewport(t, .{ .tag = .bottom, .value = undefined });
+    try testing.expectEqual(Result.success, get(t, .viewport_active, @ptrCast(&viewport_active)));
+    try testing.expect(viewport_active);
     {
         const str = try zt.plainString(testing.allocator);
         defer testing.allocator.free(str);
@@ -913,6 +928,8 @@ test "scroll_viewport" {
 
     // Scroll up by delta to bring "hello" back into view
     scroll_viewport(t, .{ .tag = .delta, .value = .{ .delta = -3 } });
+    try testing.expectEqual(Result.success, get(t, .viewport_active, @ptrCast(&viewport_active)));
+    try testing.expect(!viewport_active);
     {
         const str = try zt.plainString(testing.allocator);
         defer testing.allocator.free(str);
