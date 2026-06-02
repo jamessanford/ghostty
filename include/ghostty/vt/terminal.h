@@ -1030,6 +1030,25 @@ GHOSTTY_API void ghostty_terminal_vt_write(GhosttyTerminal terminal,
                                 size_t len);
 
 /**
+ * Returns whether the VT stream is at a clean boundary.
+ *
+ * Returns true if the terminal's VT parser is in the ground state and is
+ * not in the middle of decoding a multi-byte UTF-8 character, i.e. the most
+ * recent ghostty_terminal_vt_write() ended on a sequence boundary.
+ *
+ * Embedders that forward the raw byte stream to other consumers can use this
+ * to avoid pinning a snapshot (or emitting a full refresh) at a point where a
+ * sequence is split across vt_write calls, which would orphan the tail of the
+ * sequence for any consumer that resumes from the snapshot.
+ *
+ * @param terminal The terminal handle (NULL returns true)
+ * @return true if at a sequence boundary, false if mid-sequence
+ *
+ * @ingroup terminal
+ */
+GHOSTTY_API bool ghostty_terminal_vt_at_boundary(GhosttyTerminal terminal);
+
+/**
  * Scroll the terminal viewport.
  *
  * Scrolls the terminal's viewport according to the given behavior.

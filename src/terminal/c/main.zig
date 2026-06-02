@@ -166,6 +166,7 @@ pub const terminal_reset = terminal.reset;
 pub const terminal_resize = terminal.resize;
 pub const terminal_set = terminal.set;
 pub const terminal_vt_write = terminal.vt_write;
+pub const terminal_vt_at_boundary = terminal.vt_at_boundary;
 pub const terminal_scroll_viewport = terminal.scroll_viewport;
 pub const terminal_mode_get = terminal.mode_get;
 pub const terminal_mode_set = terminal.mode_set;

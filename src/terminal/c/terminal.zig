@@ -302,6 +302,19 @@ pub fn vt_write(
     wrapper.stream.nextSlice(ptr[0..len]);
 }
 
+/// Returns true if the VT stream is at a clean boundary, i.e. not in the
+/// middle of an escape/control sequence and not mid multi-byte UTF-8 char.
+/// Embedders that forward the raw byte stream can use this to avoid pinning a
+/// snapshot (or emitting a full refresh) at a point where a sequence is split
+/// across vt_write calls, which would orphan the sequence's tail.
+pub fn vt_at_boundary(
+    terminal_: Terminal,
+) callconv(lib.calling_conv) bool {
+    const wrapper = terminal_ orelse return true;
+    return wrapper.stream.parser.state == .ground and
+        wrapper.stream.utf8decoder.state == 0;
+}
+
 /// C: GhosttyTerminalOption
 pub const Option = enum(c_int) {
     userdata = 0,

@@ -236,6 +236,7 @@ comptime {
         @export(&c.terminal_resize, .{ .name = "ghostty_terminal_resize" });
         @export(&c.terminal_set, .{ .name = "ghostty_terminal_set" });
         @export(&c.terminal_vt_write, .{ .name = "ghostty_terminal_vt_write" });
+        @export(&c.terminal_vt_at_boundary, .{ .name = "ghostty_terminal_vt_at_boundary" });
         @export(&c.terminal_scroll_viewport, .{ .name = "ghostty_terminal_scroll_viewport" });
         @export(&c.terminal_mode_get, .{ .name = "ghostty_terminal_mode_get" });
         @export(&c.terminal_mode_set, .{ .name = "ghostty_terminal_mode_set" });
