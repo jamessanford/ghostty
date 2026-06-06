@@ -97,6 +97,13 @@ typedef struct {
   /** Emit keyboard modes such as ModifyOtherKeys. */
   bool keyboard;
 
+  /** Emit the window title using OSC 0 if one is set. */
+  bool title;
+
+  /** Emit dynamic foreground/background/cursor color overrides (OSC 10/11/12).
+   *  Only colors changed from the configured default are emitted. */
+  bool colors;
+
   /** Screen-level extras. */
   GhosttyFormatterScreenExtra screen;
 } GhosttyFormatterTerminalExtra;

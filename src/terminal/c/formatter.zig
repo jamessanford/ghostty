@@ -82,6 +82,8 @@ pub const TerminalOptions = extern struct {
         tabstops: bool,
         pwd: bool,
         keyboard: bool,
+        title: bool,
+        colors: bool,
         screen: ScreenOptions.Extra,
 
         comptime {
@@ -99,6 +101,8 @@ pub const TerminalOptions = extern struct {
                 .tabstops = self.tabstops,
                 .pwd = self.pwd,
                 .keyboard = self.keyboard,
+                .title = self.title,
+                .colors = self.colors,
                 .screen = self.screen.toZig(),
             };
         }
@@ -234,7 +238,7 @@ test "terminal_new/free" {
         &lib.alloc.test_allocator,
         &f,
         t,
-        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
+        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .title = false, .colors = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
     ));
     try testing.expect(f != null);
     free(f);
@@ -246,7 +250,7 @@ test "terminal_new invalid_value on null terminal" {
         &lib.alloc.test_allocator,
         &f,
         null,
-        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
+        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .title = false, .colors = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
     ));
     try testing.expect(f == null);
 }
@@ -271,7 +275,7 @@ test "format plain" {
         &lib.alloc.test_allocator,
         &f,
         t,
-        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
+        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .title = false, .colors = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
     ));
     defer free(f);
 
@@ -297,7 +301,7 @@ test "format reflects terminal changes" {
         &lib.alloc.test_allocator,
         &f,
         t,
-        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
+        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .title = false, .colors = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
     ));
     defer free(f);
 
@@ -329,7 +333,7 @@ test "format null returns required size" {
         &lib.alloc.test_allocator,
         &f,
         t,
-        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
+        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .title = false, .colors = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
     ));
     defer free(f);
 
@@ -361,7 +365,7 @@ test "format buffer too small" {
         &lib.alloc.test_allocator,
         &f,
         t,
-        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
+        .{ .emit = .plain, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .title = false, .colors = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
     ));
     defer free(f);
 
@@ -394,7 +398,7 @@ test "format vt" {
         &lib.alloc.test_allocator,
         &f,
         t,
-        .{ .emit = .vt, .unwrap = false, .trim = true, .extra = .{ .palette = true, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .screen = .{ .cursor = false, .style = true, .hyperlink = true, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
+        .{ .emit = .vt, .unwrap = false, .trim = true, .extra = .{ .palette = true, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .title = false, .colors = false, .screen = .{ .cursor = false, .style = true, .hyperlink = true, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
     ));
     defer free(f);
 
@@ -439,7 +443,7 @@ test "format plain with selection" {
         &lib.alloc.test_allocator,
         &f,
         t,
-        .{ .emit = .plain, .unwrap = false, .trim = true, .selection = &sel, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
+        .{ .emit = .plain, .unwrap = false, .trim = true, .selection = &sel, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .title = false, .colors = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
     ));
     defer free(f);
 
@@ -465,7 +469,7 @@ test "format html" {
         &lib.alloc.test_allocator,
         &f,
         t,
-        .{ .emit = .html, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
+        .{ .emit = .html, .unwrap = false, .trim = true, .extra = .{ .palette = false, .modes = false, .scrolling_region = false, .tabstops = false, .pwd = false, .keyboard = false, .title = false, .colors = false, .screen = .{ .cursor = false, .style = false, .hyperlink = false, .protection = false, .kitty_keyboard = false, .charsets = false, .saved_cursor = false } } },
     ));
     defer free(f);
 

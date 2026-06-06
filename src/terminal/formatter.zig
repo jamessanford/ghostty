@@ -124,6 +124,19 @@ pub const PinMap = struct {
     map: *std.ArrayList(Pin),
 };
 
+/// Returns the override RGB of a dynamic color if an application has set it
+/// to something different from the configured default, otherwise null. Used
+/// to decide whether to re-emit an OSC 10/11/12 override when reconstructing
+/// terminal state: an override equal to the default (or unset) needs no
+/// sequence, since the receiving terminal already lands there on its own.
+fn dynamicColorOverride(c: color.DynamicRGB) ?color.RGB {
+    const ov = c.override orelse return null;
+    if (c.default) |def| {
+        if (ov.eql(def)) return null;
+    }
+    return ov;
+}
+
 /// Terminal formatter formats the active terminal screen.
 ///
 /// This will always only emit data related to the currently active screen.
@@ -189,6 +202,14 @@ pub const TerminalFormatter = struct {
         /// sequences.
         keyboard: bool,
 
+        /// Emit the window title using OSC 0 if one is set.
+        title: bool,
+
+        /// Emit dynamic foreground/background/cursor color overrides using
+        /// OSC 10/11/12. Only colors that an application has changed from the
+        /// configured default are emitted.
+        colors: bool,
+
         /// The screen extras to emit. TerminalFormatter always only
         /// emits data for the currently active screen. If you want to emit
         /// data for all screens, you should manually construct a no-content
@@ -203,6 +224,8 @@ pub const TerminalFormatter = struct {
             .tabstops = false,
             .pwd = false,
             .keyboard = false,
+            .title = false,
+            .colors = false,
             .screen = .none,
         };
 
@@ -214,6 +237,8 @@ pub const TerminalFormatter = struct {
             .tabstops = false,
             .pwd = false,
             .keyboard = false,
+            .title = false,
+            .colors = false,
             .screen = .styles,
         };
 
@@ -226,6 +251,8 @@ pub const TerminalFormatter = struct {
             .tabstops = true,
             .pwd = true,
             .keyboard = true,
+            .title = true,
+            .colors = true,
             .screen = .all,
         };
     };
@@ -390,6 +417,28 @@ pub const TerminalFormatter = struct {
                 if (pwd.len > 0) try writer.print("\x1b]7;{s}\x1b\\", .{pwd});
             }
 
+            // Emit the window title using OSC 0
+            if (self.extra.title) {
+                if (self.terminal.getTitle()) |title| {
+                    try writer.print("\x1b]0;{s}\x1b\\", .{title});
+                }
+            }
+
+            // Emit dynamic foreground/background/cursor color overrides using
+            // OSC 10/11/12. Only colors changed from the default are emitted.
+            if (self.extra.colors) {
+                const colors = &self.terminal.colors;
+                if (dynamicColorOverride(colors.foreground)) |rgb| {
+                    try writer.print("\x1b]10;rgb:{x:0>2}/{x:0>2}/{x:0>2}\x1b\\", .{ rgb.r, rgb.g, rgb.b });
+                }
+                if (dynamicColorOverride(colors.background)) |rgb| {
+                    try writer.print("\x1b]11;rgb:{x:0>2}/{x:0>2}/{x:0>2}\x1b\\", .{ rgb.r, rgb.g, rgb.b });
+                }
+                if (dynamicColorOverride(colors.cursor)) |rgb| {
+                    try writer.print("\x1b]12;rgb:{x:0>2}/{x:0>2}/{x:0>2}\x1b\\", .{ rgb.r, rgb.g, rgb.b });
+                }
+            }
+
             // If we have a pin_map, add the bytes we wrote to map.
             if (self.pin_map) |*m| {
                 var discarding: std.Io.Writer.Discarding = .init(&.{});
@@ -401,6 +450,8 @@ pub const TerminalFormatter = struct {
                 extra_formatter.extra.tabstops = self.extra.tabstops;
                 extra_formatter.extra.keyboard = self.extra.keyboard;
                 extra_formatter.extra.pwd = self.extra.pwd;
+                extra_formatter.extra.title = self.extra.title;
+                extra_formatter.extra.colors = self.extra.colors;
                 try extra_formatter.format(&discarding.writer);
 
                 m.map.appendNTimes(
@@ -5182,6 +5233,121 @@ test "Terminal vt with pwd" {
 
     // Verify pwd matches
     try testing.expectEqualStrings(t.pwd.items, t2.pwd.items);
+}
+
+test "Terminal vt with title" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    var builder: std.Io.Writer.Allocating = .init(alloc);
+    defer builder.deinit();
+
+    var t = try Terminal.init(alloc, .{
+        .cols = 80,
+        .rows = 24,
+    });
+    defer t.deinit(alloc);
+
+    var s = t.vtStream();
+    defer s.deinit();
+
+    // Set the window title using OSC 0
+    s.nextSlice("\x1b]0;My Window Title\x1b\\hello");
+
+    var formatter: TerminalFormatter = .init(&t, .vt);
+    formatter.extra.title = true;
+
+    try formatter.format(&builder.writer);
+    const output = builder.writer.buffered();
+
+    // Create a second terminal and apply the output
+    var t2 = try Terminal.init(alloc, .{
+        .cols = 80,
+        .rows = 24,
+    });
+    defer t2.deinit(alloc);
+
+    var s2 = t2.vtStream();
+    defer s2.deinit();
+
+    s2.nextSlice(output);
+
+    // Verify the title round-trips
+    try testing.expectEqualStrings("My Window Title", t2.getTitle().?);
+    try testing.expectEqualStrings(t.getTitle().?, t2.getTitle().?);
+}
+
+test "Terminal vt with dynamic colors" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    var builder: std.Io.Writer.Allocating = .init(alloc);
+    defer builder.deinit();
+
+    var t = try Terminal.init(alloc, .{
+        .cols = 80,
+        .rows = 24,
+    });
+    defer t.deinit(alloc);
+
+    var s = t.vtStream();
+    defer s.deinit();
+
+    // Override foreground, background, and cursor colors via OSC 10/11/12
+    s.nextSlice("\x1b]10;rgb:ab/cd/ef\x1b\\");
+    s.nextSlice("\x1b]11;rgb:12/34/56\x1b\\");
+    s.nextSlice("\x1b]12;rgb:78/9a/bc\x1b\\");
+
+    var formatter: TerminalFormatter = .init(&t, .vt);
+    formatter.extra.colors = true;
+
+    try formatter.format(&builder.writer);
+    const output = builder.writer.buffered();
+
+    // Create a second terminal and apply the output
+    var t2 = try Terminal.init(alloc, .{
+        .cols = 80,
+        .rows = 24,
+    });
+    defer t2.deinit(alloc);
+
+    var s2 = t2.vtStream();
+    defer s2.deinit();
+
+    s2.nextSlice(output);
+
+    // Verify each dynamic color override round-trips
+    try testing.expect(t2.colors.foreground.get().?.eql(.{ .r = 0xab, .g = 0xcd, .b = 0xef }));
+    try testing.expect(t2.colors.background.get().?.eql(.{ .r = 0x12, .g = 0x34, .b = 0x56 }));
+    try testing.expect(t2.colors.cursor.get().?.eql(.{ .r = 0x78, .g = 0x9a, .b = 0xbc }));
+}
+
+test "Terminal vt colors skips overrides matching default" {
+    const testing = std.testing;
+    const alloc = testing.allocator;
+
+    var builder: std.Io.Writer.Allocating = .init(alloc);
+    defer builder.deinit();
+
+    var t = try Terminal.init(alloc, .{
+        .cols = 80,
+        .rows = 24,
+    });
+    defer t.deinit(alloc);
+
+    // Give the background a configured default, then have the "app" set an
+    // override equal to that default. No OSC 11 should be emitted because the
+    // receiving terminal already lands on its own default.
+    t.colors.background.default = .{ .r = 0x12, .g = 0x34, .b = 0x56 };
+    t.colors.background.set(.{ .r = 0x12, .g = 0x34, .b = 0x56 });
+
+    var formatter: TerminalFormatter = .init(&t, .vt);
+    formatter.extra.colors = true;
+
+    try formatter.format(&builder.writer);
+    const output = builder.writer.buffered();
+
+    try testing.expect(std.mem.indexOf(u8, output, "\x1b]11") == null);
 }
 
 test "Page html with multiple styles" {
